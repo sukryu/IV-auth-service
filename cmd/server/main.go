@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -8,12 +9,28 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sukryu/IV-auth-services/internal/config"
+	"github.com/sukryu/IV-auth-services/internal/infra/database"
 	"google.golang.org/grpc"
 )
 
 func main() {
+	// 환경 설정 로드
+	env := config.GetEnvFromArgs()
+	cfg, err := config.LoadConfig(env)
+	if err != nil {
+		log.Fatalf("설정을 로드하지 못했습니다: %v", err)
+	}
+
+	// 데이터베이스 연결
+	db, err := database.NewPostgresDB(cfg)
+	if err != nil {
+		log.Fatalf("데이터베이스 연결 실패: %v", err)
+	}
+	defer db.Close()
+
 	// gRPC 서버를 실행할 포트 설정
-	const port = ":50051"
+	port := fmt.Sprintf(":%d", cfg.Server.Port)
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("포트 %s 에서 리스닝 실패: %v", port, err)

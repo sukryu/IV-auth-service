@@ -1,0 +1,65 @@
+# IDE 및 에디터 관련 파일
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go 관련 파일
+/bin/
+/vendor/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/go.work
+
+# 컴파일된 바이너리
+/auth-service
+
+# 로그 파일
+*.log
+logs/
+
+# 환경 변수 및 보안 관련 파일
+.env
+*.pem
+/configs/keys/*
+!/configs/keys/.gitkeep
+
+# 테스트 관련 파일
+coverage.out
+coverage.html
+
+# 임시 파일 및 디렉토리
+/tmp/
+/temp/
+
+# 의존성 디렉토리
+/node_modules/
+
+# 빌드 출력
+/dist/
+/build/
+
+# 캐시 디렉토리
+/.cache/
+
+# 개발 환경 데이터베이스 파일
+*.db
+*.sqlite
+
+# 생성된 gRPC 코드
+*.pb.go
+*.pb.gw.go
+
+# 특정 설정 파일 예외 처리 (예시)
+# !/configs/dev.yaml
+# !/configs/prod.yaml
+
+# OS 관련 파일
+Thumbs.db
