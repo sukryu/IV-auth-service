@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-
 	"github.com/sukryu/IV-auth-services/internal/domain"
 	"github.com/sukryu/IV-auth-services/internal/domain/repo"
 )

@@ -10,75 +10,116 @@ import (
 	"time"
 
 	"github.com/sukryu/IV-auth-services/internal/config"
+	"github.com/sukryu/IV-auth-services/internal/grpcsvc"
+	"github.com/sukryu/IV-auth-services/internal/grpcsvc/interceptors"
 	"github.com/sukryu/IV-auth-services/internal/infra/database"
+	"github.com/sukryu/IV-auth-services/internal/infra/kafka"
+	"github.com/sukryu/IV-auth-services/internal/infra/redis"
+	authv1 "github.com/sukryu/IV-auth-services/internal/proto/auth/v1"
+	"github.com/sukryu/IV-auth-services/internal/services"
 	"google.golang.org/grpc"
 )
 
+// main은 Authentication Service의 진입점입니다.
+// 환경 설정을 로드하고, 데이터베이스, Redis, Kafka 연결을 초기화하며, gRPC 서버를 실행합니다.
 func main() {
 	// 환경 설정 로드
 	env := config.GetEnvFromArgs()
 	cfg, err := config.LoadConfig(env)
 	if err != nil {
-		log.Fatalf("설정을 로드하지 못했습니다: %v", err)
+		log.Fatalf("Failed to load config: %v", err) // 초기화 전이므로 std log 유지
 	}
 
 	// 데이터베이스 연결
 	db, err := database.NewPostgresDB(cfg)
 	if err != nil {
-		log.Fatalf("데이터베이스 연결 실패: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// gRPC 서버를 실행할 포트 설정
+	// Redis 연결
+	redisClient := redis.NewClient(cfg)
+	defer redisClient.Close()
+
+	// Kafka 연결
+	kafkaProducer := kafka.NewProducer(cfg)
+	defer kafkaProducer.Close()
+
+	// 도메인 서비스 초기화
+	dbUserRepo := database.NewUserRepository(db)
+	dbPlatformRepo := database.NewPlatformRepository(db)
+	dbTokenRepo := database.NewTokenRepository(db)
+
+	userRepo := redis.NewUserRepository(redisClient, dbUserRepo, 5*time.Minute)
+	platformRepo := redis.NewPlatformRepository(redisClient, dbPlatformRepo, 5*time.Minute)
+	tokenRepo := redis.NewTokenRepository(redisClient, dbTokenRepo)
+	eventPub := kafka.NewEventPublisher(kafkaProducer)
+
+	authSvc := services.NewAuthService(services.AuthServiceConfig{
+		UserRepo:   userRepo,
+		TokenRepo:  tokenRepo,
+		EventPub:   eventPub,
+		PrivateKey: []byte(cfg.JWT.PrivateKeyPath), // 실제 키 로드 필요
+		PublicKey:  []byte(cfg.JWT.PublicKeyPath),  // 실제 키 로드 필요
+		AccessTTL:  15 * time.Minute,
+		RefreshTTL: 7 * 24 * time.Hour,
+	})
+	userSvc := services.NewUserService(services.UserServiceConfig{
+		UserRepo: userRepo,
+		EventPub: eventPub,
+	})
+	platformSvc := services.NewPlatformService(services.PlatformServiceConfig{
+		UserRepo:     userRepo,
+		PlatformRepo: platformRepo,
+		EventPub:     eventPub,
+		OAuthClient:  nil, // 실제 OAuth 클라이언트 구현 필요
+	})
+
+	// gRPC 서버 설정
 	port := fmt.Sprintf(":%d", cfg.Server.Port)
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
-		log.Fatalf("포트 %s 에서 리스닝 실패: %v", port, err)
+		log.Fatalf("Failed to listen on port %s: %v", port, err)
 	}
 
-	// gRPC 서버 생성 (필요한 인터셉터나 옵션 추가 가능)
-	grpcServer := grpc.NewServer()
+	// 인터셉터 적용된 gRPC 서버 생성
+	grpcServer := grpc.NewServer(interceptors.ChainUnaryInterceptors(authSvc))
+	authv1.RegisterAuthServiceServer(grpcServer, grpcsvc.NewAuthService(authSvc))
+	authv1.RegisterUserServiceServer(grpcServer, grpcsvc.NewUserService(userSvc))
+	authv1.RegisterPlatformServiceServer(grpcServer, grpcsvc.NewPlatformService(platformSvc))
 
-	// TODO: 실제 AuthService 구현체를 등록합니다.
-	// 예시:
-	// authpb.RegisterAuthServiceServer(grpcServer, grpc.NewAuthServiceServer(...))
-
-	// gRPC 서버를 별도의 고루틴에서 실행
+	// gRPC 서버 실행
 	go func() {
-		log.Printf("gRPC 서버가 포트 %s 에서 시작되었습니다.", port)
+		log.Printf("Starting gRPC server on port %s", port)
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("gRPC 서버 실행 중 오류 발생: %v", err)
+			log.Printf("Failed to serve gRPC server: %v", err)
 		}
 	}()
 
-	// OS 신호(Interrupt, SIGTERM) 수신을 위한 채널 생성
+	// 종료 신호 대기
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit // 신호가 올 때까지 대기
+	<-quit
 
-	log.Println("gRPC 서버 종료 준비 중...")
-
-	// graceful shutdown: 기존 연결들을 마무리할 시간을 제공
+	log.Printf("Preparing to shutdown gRPC server")
 	gracefulStop(grpcServer, 5*time.Second)
-
-	log.Println("gRPC 서버가 정상적으로 종료되었습니다.")
+	log.Printf("gRPC server stopped successfully")
 }
 
-// gracefulStop는 지정된 시간 동안 기존 연결을 종료시키고, 서버를 안전하게 중지합니다.
+// gracefulStop는 gRPC 서버를 안전하게 종료합니다.
+// 지정된 타임아웃 내에 모든 연결을 처리하고 종료합니다.
 func gracefulStop(server *grpc.Server, timeout time.Duration) {
-	// gracefulStop은 blocking 함수로, 기존 연결들을 처리한 후 종료합니다.
 	done := make(chan struct{})
 	go func() {
 		server.GracefulStop()
 		close(done)
 	}()
 
-	// 지정된 시간 내에 종료되지 않으면 강제 종료
 	select {
 	case <-done:
-		// 정상적으로 종료됨
+		// 정상 종료
 	case <-time.After(timeout):
-		log.Println("graceful shutdown 시간 초과, 강제 종료합니다.")
+		log.Printf("Graceful shutdown timed out, forcing stop")
 		server.Stop()
 	}
 }
