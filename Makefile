@@ -1,9 +1,9 @@
 # 데이터베이스 연결 문자열을 환경 변수로 정의
 DB_USER ?= auth_user
-DB_PASSWORD ?= dev_password
-DB_HOST ?= localhost
+DB_PASSWORD ?= test_password
+DB_HOST ?= 4.206.162.3
 DB_PORT ?= 5432
-DB_NAME ?= auth_db_dev
+DB_NAME ?= auth_db_test
 DB_DSN = postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)
 
 # 마이그레이션 명령

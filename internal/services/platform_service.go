@@ -28,11 +28,29 @@ type PlatformServiceConfig struct {
 	OAuthClient  OAuthClient
 }
 
+// DummyOAuthClient는 테스트용 더미 OAuth 클라이언트입니다.
+// 실제 OAuth 통합 전까지 임시로 사용됩니다.
+type DummyOAuthClient struct{}
+
+// ExchangeCode는 더미 액세스/리프레시 토큰을 반환합니다.
+func (c *DummyOAuthClient) ExchangeCode(ctx context.Context, platform domain.PlatformType, code string) (accessToken, refreshToken string, expiresAt time.Time, err error) {
+	return "dummy-access-token", "dummy-refresh-token", time.Now().Add(15 * time.Minute), nil
+}
+
+// RefreshAccessToken는 더미로 갱신된 토큰을 반환합니다.
+func (c *DummyOAuthClient) RefreshAccessToken(ctx context.Context, platform domain.PlatformType, refreshToken string) (accessToken, newRefreshToken string, expiresAt time.Time, err error) {
+	return "dummy-new-access-token", "dummy-new-refresh-token", time.Now().Add(15 * time.Minute), nil
+}
+
 // NewPlatformService는 새로운 PlatformService 인스턴스를 생성하여 반환합니다.
-// 모든 의존성은 PlatformServiceConfig를 통해 주입되며, 필수 필드 검증 후 초기화합니다.
+// 의존성을 주입받으며, OAuth 클라이언트가 nil일 경우 더미로 대체합니다.
 func NewPlatformService(cfg PlatformServiceConfig) *PlatformService {
-	if cfg.UserRepo == nil || cfg.PlatformRepo == nil || cfg.EventPub == nil || cfg.OAuthClient == nil {
-		log.Fatal("NewPlatformService: 모든 저장소, 이벤트 발행기, OAuth 클라이언트는 필수입니다")
+	if cfg.UserRepo == nil || cfg.PlatformRepo == nil || cfg.EventPub == nil {
+		log.Fatal("NewPlatformService: UserRepo, PlatformRepo, EventPub는 필수입니다")
+	}
+	if cfg.OAuthClient == nil {
+		log.Printf("OAuthClient is nil, using dummy implementation for testing")
+		cfg.OAuthClient = &DummyOAuthClient{}
 	}
 
 	return &PlatformService{

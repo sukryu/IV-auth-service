@@ -53,7 +53,7 @@ func main() {
 	userRepo := redis.NewUserRepository(redisClient, dbUserRepo, 5*time.Minute)
 	platformRepo := redis.NewPlatformRepository(redisClient, dbPlatformRepo, 5*time.Minute)
 	tokenRepo := redis.NewTokenRepository(redisClient, dbTokenRepo)
-	eventPub := kafka.NewEventPublisher(kafkaProducer)
+	eventPub := kafka.NewEventPublisher(kafkaProducer, cfg.Kafka.TopicPrefix)
 
 	authSvc := services.NewAuthService(services.AuthServiceConfig{
 		UserRepo:   userRepo,

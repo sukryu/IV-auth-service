@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/viper"
 )
@@ -45,9 +46,25 @@ type Config struct {
 func LoadConfig(env string) (*Config, error) {
 	v := viper.New()
 	v.SetConfigType("yaml")
-	// Set the path to the configuration files directory.
-	v.AddConfigPath("configs")
-	// Set the file name based on the environment (e.g., dev.yaml or prod.yaml).
+
+	// 환경 변수로 경로 지정 (선택)
+	if configPath := os.Getenv("CONFIG_PATH"); configPath != "" {
+		v.AddConfigPath(configPath)
+	} else {
+		// 기본 동적 계산
+		dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get absolute directory: %w", err)
+		}
+		rootDir := dir
+		for !fileExists(filepath.Join(rootDir, "configs")) && rootDir != "/" {
+			rootDir = filepath.Dir(rootDir)
+		}
+		if rootDir == "/" {
+			return nil, fmt.Errorf("failed to find project root directory containing 'configs'")
+		}
+		v.AddConfigPath(filepath.Join(rootDir, "configs"))
+	}
 	v.SetConfigName(env)
 
 	// Read the configuration file.
@@ -61,6 +78,12 @@ func LoadConfig(env string) (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// fileExists는 지정된 경로에 파일 또는 디렉토리가 존재하는지 확인합니다.
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }
 
 // GetEnvFromArgs retrieves the environment ("dev" or "prod") from command-line arguments.
