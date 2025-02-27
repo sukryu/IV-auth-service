@@ -9,7 +9,7 @@ proto:
 
 # 데이터베이스 마이그레이션
 migrate:
-	migrate -path db/migrations -database "$$(viper get db.dsn)" up
+	go run cmd/migrate/main.go $(CONFIG_FILE)
 
 # 서비스 실행
 run:

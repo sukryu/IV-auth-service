@@ -3,6 +3,10 @@ version: "3.8"
 services:
   postgres:
     image: postgres:15
+    environment:
+      POSTGRES_USER: auth_user           # PostgreSQL 사용자 이름
+      POSTGRES_PASSWORD: auth_password   # PostgreSQL 비밀번호
+      POSTGRES_DB: auth_db               # 기본 데이터베이스 이름
     ports:
       - "5432:5432"
     volumes:
@@ -15,12 +19,15 @@ services:
 
   redis:
     image: redis:7
+    environment:
+      REDIS_PASSWORD: redis_password     # Redis 비밀번호 (선택적, 보안 강화 시 사용)
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    command: redis-server --requirepass redis_password  # 비밀번호 설정 적용
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
