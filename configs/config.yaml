@@ -1,0 +1,14 @@
+db:
+  host: "localhost"
+  port: 5432
+  user: "auth_user"
+  password: "auth_password"
+  name: "auth_db"
+  dsn: "postgres://auth_user:auth_password@localhost:5432/auth_db?sslmode=disable"
+redis:
+  addr: "localhost:6379"
+kafka:
+  broker: "localhost:9092"
+jwt:
+  privateKeyPath: "./config/jwt-private.pem"
+  publicKeyPath: "./config/jwt-public.pem"
