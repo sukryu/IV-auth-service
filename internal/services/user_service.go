@@ -42,6 +42,12 @@ func NewUserService(cfg UserServiceConfig) *UserService {
 // 사용자명 중복 검사를 수행하고, 비밀번호를 해싱하며, 생성 후 이벤트를 발행합니다.
 // 목표: 실시간 처리 (100ms 이내), 데이터 무결성 유지.
 func (s *UserService) CreateUser(ctx context.Context, username, email, password string) (*domain.User, error) {
+	log.Printf("Creating user: %s, email: %s", username, email)
+	if username == "" || email == "" || password == "" {
+		log.Printf("CreateUser failed: empty fields")
+		return nil, fmt.Errorf("username, email, and password cannot be empty")
+	}
+
 	// 사용자명 중복 체크
 	exists, err := s.userRepo.ExistsByUsername(ctx, username)
 	if err != nil {
@@ -77,6 +83,7 @@ func (s *UserService) CreateUser(ctx context.Context, username, email, password 
 		Username:  user.Username,
 		Timestamp: time.Now().UTC(),
 	})
+	log.Printf("User created: %s, ID: %s", username, user.ID)
 	return user, nil
 }
 

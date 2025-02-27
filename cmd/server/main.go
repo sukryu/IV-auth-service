@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"log"
 	"net"
@@ -41,9 +44,63 @@ func main() {
 	redisClient := redis.NewClient(cfg)
 	defer redisClient.Close()
 
+	// Rate Limiter 초기화 (분당 10회 제한 (나중에 플랜별 제한 적용))
+	rateLimiter := redis.NewRateLimiter(redisClient, 10, 60*time.Second)
+
 	// Kafka 연결
 	kafkaProducer := kafka.NewProducer(cfg)
 	defer kafkaProducer.Close()
+
+	// JWT RSA Token 가져오기
+	privateKeyBytes, err := os.ReadFile(cfg.JWT.PrivateKeyPath)
+	if err != nil {
+		log.Fatalf("Failed to read private key from %s: %v", cfg.JWT.PrivateKeyPath, err)
+	}
+	publicKeyBytes, err := os.ReadFile(cfg.JWT.PublicKeyPath)
+	if err != nil {
+		log.Fatalf("Failed to read public key from %s: %v", cfg.JWT.PublicKeyPath, err)
+	}
+
+	privateKeyBlock, rest := pem.Decode(privateKeyBytes)
+	if privateKeyBlock == nil {
+		log.Fatalf("Failed to decode private key PEM: invalid format, content: %s, rest: %s", string(privateKeyBytes), string(rest))
+	}
+	var privateKey *rsa.PrivateKey
+	switch privateKeyBlock.Type {
+	case "PRIVATE KEY":
+		key, err := x509.ParsePKCS8PrivateKey(privateKeyBlock.Bytes)
+		if err != nil {
+			log.Fatalf("Failed to parse PKCS#8 private key: %v", err)
+		}
+		var ok bool
+		privateKey, ok = key.(*rsa.PrivateKey)
+		if !ok {
+			log.Fatalf("Parsed private key is not RSA type")
+		}
+	case "RSA PRIVATE KEY":
+		privateKey, err = x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
+		if err != nil {
+			log.Fatalf("Failed to parse PKCS#1 private key: %v", err)
+		}
+	default:
+		log.Fatalf("Unexpected PEM type '%s', expected 'PRIVATE KEY' or 'RSA PRIVATE KEY'", privateKeyBlock.Type)
+	}
+
+	publicKeyBlock, rest := pem.Decode(publicKeyBytes)
+	if publicKeyBlock == nil {
+		log.Fatalf("Failed to decode public key PEM: invalid format, content: %s, rest: %s", string(publicKeyBytes), string(rest))
+	}
+	if publicKeyBlock.Type != "PUBLIC KEY" {
+		log.Fatalf("Expected PEM type 'PUBLIC KEY', got '%s'", publicKeyBlock.Type)
+	}
+	publicKey, err := x509.ParsePKIXPublicKey(publicKeyBlock.Bytes)
+	if err != nil {
+		log.Fatalf("Failed to parse public key: %v", err)
+	}
+	publicRSAKey, ok := publicKey.(*rsa.PublicKey)
+	if !ok {
+		log.Fatalf("Public key is not RSA type")
+	}
 
 	// 도메인 서비스 초기화
 	dbUserRepo := database.NewUserRepository(db)
@@ -59,8 +116,8 @@ func main() {
 		UserRepo:   userRepo,
 		TokenRepo:  tokenRepo,
 		EventPub:   eventPub,
-		PrivateKey: []byte(cfg.JWT.PrivateKeyPath), // 실제 키 로드 필요
-		PublicKey:  []byte(cfg.JWT.PublicKeyPath),  // 실제 키 로드 필요
+		PrivateKey: privateKey,   // 실제 키 로드 필요
+		PublicKey:  publicRSAKey, // 실제 키 로드 필요
 		AccessTTL:  15 * time.Minute,
 		RefreshTTL: 7 * 24 * time.Hour,
 	})
@@ -83,7 +140,7 @@ func main() {
 	}
 
 	// 인터셉터 적용된 gRPC 서버 생성
-	grpcServer := grpc.NewServer(interceptors.ChainUnaryInterceptors(authSvc))
+	grpcServer := grpc.NewServer(interceptors.ChainUnaryInterceptors(authSvc, rateLimiter))
 	authv1.RegisterAuthServiceServer(grpcServer, grpcsvc.NewAuthService(authSvc))
 	authv1.RegisterUserServiceServer(grpcServer, grpcsvc.NewUserService(userSvc))
 	authv1.RegisterPlatformServiceServer(grpcServer, grpcsvc.NewPlatformService(platformSvc))

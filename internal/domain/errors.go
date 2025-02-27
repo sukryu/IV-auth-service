@@ -19,22 +19,22 @@ var ErrInvalidExpiresAt = NewError("invalid expires at time")
 
 // ErrInvalidCredentials는 사용자 자격 증명(예: 비밀번호)이 잘못되었을 때 반환되는 에러입니다.
 // 로그인 시 비밀번호 불일치나 사용자 미존재 상황에서 사용됩니다.
-var ErrInvalidCredentials = NewError("invalid credentials")
+var ErrInvalidCredentials = NewError("invalid credentials: username or password is incorrect")
 
 // ErrUserNotActive는 사용자가 활성 상태가 아닐 때 반환되는 에러입니다.
 // 계정이 SUSPENDED, DELETED 등 비활성 상태일 경우 발생합니다.
-var ErrUserNotActive = NewError("user not active")
+var ErrUserNotActive = NewError("user not active: account is suspended or deleted")
 
 // ErrInvalidToken는 토큰이 유효하지 않을 때 반환되는 에러입니다.
 // JWT 서명 오류, 만료, 형식 문제 등에서 사용됩니다.
-var ErrInvalidToken = NewError("invalid token")
+var ErrInvalidToken = NewError("invalid token: token is malformed or expired")
 
 // ErrTokenBlacklisted는 토큰이 블랙리스트에 포함되어 있을 때 반환되는 에러입니다.
 // 로그아웃이나 보안 문제로 무효화된 토큰에 대해 발생합니다.
-var ErrTokenBlacklisted = NewError("token blacklisted")
+var ErrTokenBlacklisted = NewError("token blacklisted: token has been revoked")
 
 // ErrUserAlreadyExists는 사용자 생성 시 이미 존재하는 사용자명일 때 반환되는 에러입니다.
-var ErrUserAlreadyExists = NewError("user already exists")
+var ErrUserAlreadyExists = NewError("user already exists: username or email is taken")
 
 // ErrUserNotFound는 사용자 조회 시 사용자가 존재하지 않을 때 반환되는 에러입니다.
 var ErrUserNotFound = NewError("user not found")

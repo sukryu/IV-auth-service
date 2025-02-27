@@ -44,6 +44,9 @@ func TestIntegration(t *testing.T) {
 	redisClient := redis.NewClient(cfg)
 	defer redisClient.Close()
 
+	// Rate Limiter 초기화 (분당 10회 제한 (나중에 플랜별 제한 적용))
+	rateLimiter := redis.NewRateLimiter(redisClient, 10, 60*time.Second)
+
 	kafkaProducer := kafka.NewProducer(cfg)
 	defer kafkaProducer.Close()
 
@@ -122,7 +125,7 @@ func TestIntegration(t *testing.T) {
 		OAuthClient:  nil,
 	})
 
-	grpcServer := grpc.NewServer(interceptors.ChainUnaryInterceptors(authSvc))
+	grpcServer := grpc.NewServer(interceptors.ChainUnaryInterceptors(authSvc, rateLimiter))
 	authv1.RegisterAuthServiceServer(grpcServer, grpcsvc.NewAuthService(authSvc))
 	authv1.RegisterUserServiceServer(grpcServer, grpcsvc.NewUserService(userSvc))
 	authv1.RegisterPlatformServiceServer(grpcServer, grpcsvc.NewPlatformService(platformSvc))

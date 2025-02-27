@@ -2,11 +2,13 @@ package interceptors
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/sukryu/IV-auth-services/internal/domain"
+	"github.com/sukryu/IV-auth-services/internal/infra/redis"
 	authv1 "github.com/sukryu/IV-auth-services/internal/proto/auth/v1"
 	"github.com/sukryu/IV-auth-services/internal/services"
 	"google.golang.org/grpc"
@@ -90,12 +92,48 @@ func ValidationInterceptor(ctx context.Context, req interface{}, info *grpc.Unar
 	return handler(ctx, req)
 }
 
+// RateLimitInterceptor는 gRPC 요청에 속도 제한을 적용하는 Unary 인터셉터입니다.
+// Redis를 사용해 사용자별 요청 횟수를 제한합니다.
+func RateLimitInterceptor(rateLimiter *redis.RateLimiter) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		// 사용자 ID 추출 (인증 후에만 적용)
+		userID, ok := ctx.Value("user_id").(string)
+		if !ok && !strings.HasSuffix(info.FullMethod, "/Login") {
+			return nil, status.Error(codes.Internal, "failed to extract user ID for rate limiting")
+		}
+
+		// Login은 username으로 제한
+		var key string
+		if strings.HasSuffix(info.FullMethod, "/Login") {
+			if loginReq, ok := req.(*authv1.LoginRequest); ok {
+				key = fmt.Sprintf("%s:%s", loginReq.Username, info.FullMethod)
+			} else {
+				return nil, status.Error(codes.Internal, "invalid login request type")
+			}
+		} else {
+			key = fmt.Sprintf("%s:%s", userID, info.FullMethod)
+		}
+
+		allowed, err := rateLimiter.Allow(ctx, key)
+		if err != nil {
+			log.Printf("Rate limit error: %v", err)
+			return nil, status.Errorf(codes.Internal, "rate limit check failed: %v", err)
+		}
+		if !allowed {
+			log.Printf("Rate limit exceeded for %s", key)
+			return nil, status.Error(codes.ResourceExhausted, "too many requests")
+		}
+
+		return handler(ctx, req)
+	}
+}
+
 // ChainUnaryInterceptors는 여러 Unary 인터셉터를 체인으로 연결합니다.
-// 로깅, 인증, 검증 순서로 적용됩니다.
-func ChainUnaryInterceptors(authSvc *services.AuthService) grpc.ServerOption {
+func ChainUnaryInterceptors(authSvc *services.AuthService, rateLimiter *redis.RateLimiter) grpc.ServerOption {
 	return grpc.ChainUnaryInterceptor(
 		LoggingInterceptor,
 		AuthInterceptor(authSvc),
+		RateLimitInterceptor(rateLimiter),
 		ValidationInterceptor,
 	)
 }

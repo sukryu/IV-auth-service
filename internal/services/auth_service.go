@@ -83,6 +83,12 @@ func NewAuthService(cfg AuthServiceConfig) *AuthService {
 // 비밀번호 검증 후 사용자 상태를 확인하며, 감사 로그와 이벤트를 기록합니다.
 // 목표: 실시간 처리 (100ms 이내), 보안성 유지 (Argon2id, JWT RS256).
 func (s *AuthService) Login(ctx context.Context, username, password string) (*domain.TokenPair, error) {
+	log.Printf("Attempting login for user: %s", username)
+	if username == "" || password == "" {
+		log.Printf("Login failed: empty username or password")
+		s.eventPub.Publish(ctx, domain.LoginFailed{UserID: "", Username: username, Reason: "empty username or password"})
+		return nil, fmt.Errorf("username and password cannot be empty")
+	}
 	// 사용자 조회
 	user, err := s.userRepo.FindByUsername(ctx, username)
 	if err != nil {
@@ -126,6 +132,7 @@ func (s *AuthService) Login(ctx context.Context, username, password string) (*do
 
 	// 성공 이벤트 발행
 	s.eventPub.Publish(ctx, domain.LoginSucceeded{UserID: user.ID, Username: username})
+	log.Printf("Login succeeded for user: %s", username)
 	return tokenPair, nil
 }
 
@@ -165,6 +172,11 @@ func (s *AuthService) generateTokenPair(userID string, roles []string) (*domain.
 // ValidateToken은 제공된 액세스 토큰의 유효성을 검증합니다.
 // 블랙리스트 확인 및 JWT 서명/만료 여부를 체크합니다.
 func (s *AuthService) ValidateToken(ctx context.Context, tokenStr string) (string, []string, error) {
+	// 엣지 케이스: 빈 토큰 체크
+	if tokenStr == "" {
+		return "", nil, domain.ErrInvalidToken
+	}
+
 	// 더미 토큰 허용 (테스트용)
 	if tokenStr == "dummy-token" {
 		return "test-user-id", []string{"USER"}, nil
