@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	"github.com/sukryu/IV-auth-services/internal/adapters/db/postgres"
+	events "github.com/sukryu/IV-auth-services/internal/adapters/kafka"
 	"github.com/sukryu/IV-auth-services/internal/config"
 	"github.com/sukryu/IV-auth-services/pkg/logger"
 	"go.uber.org/zap"
@@ -37,6 +38,21 @@ func main() {
 		log.Fatal("Failed to initialize database connection", zap.Error(err))
 	}
 	defer db.Close()
+
+	// EventPublisher 초기화
+	eventPub := events.NewKafkaEventPublisher(cfg, log)
+	defer eventPub.Close()
+
+	// 저장소와 서비스를 초기화 해도 주입할 gRPC 서비스가 아직 미구현이므로 주석.
+	// 저장소 초기화
+	// userRepo := postgres.NewUserRepository(db, log)
+	// tokenRepo := postgres.NewTokenRepository(db, log)
+	// platformRepo := postgres.NewPlatformAccountRepository(db, log)
+
+	// // 서비스 초기화 (TokenGenerator는 미구현 상태로 임시 주석)
+	// authSvc := domain.NewAuthService(userRepo, tokenRepo, nil, eventPub)
+	// userMgmtSvc := domain.NewUserManagementService(userRepo, eventPub)
+	// platformSvc := domain.NewPlatformService(platformRepo, eventPub)
 
 	// 서비스 시작 로그
 	log.Info("IV-auth-service started successfully",

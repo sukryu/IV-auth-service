@@ -18,9 +18,10 @@ type AuthService interface {
 
 // authService implements AuthService with domain logic.
 type authService struct {
-	userRepo UserRepository // 사용자 조회를 위한 저장소 (미구현)
-	tokenGen TokenGenerator // 토큰 생성기 (미구현)
-	eventPub EventPublisher // 이벤트 발행기 (미구현)
+	userRepo  UserRepository
+	tokenRepo TokenRepository
+	tokenGen  TokenGenerator
+	eventPub  EventPublisher
 }
 
 // TokenGenerator defines the interface for generating tokens (placeholder).
@@ -30,17 +31,13 @@ type TokenGenerator interface {
 	ValidateToken(tokenStr string) (string, error) // Returns userID
 }
 
-// EventPublisher defines the interface for publishing domain events (placeholder).
-type EventPublisher interface {
-	Publish(event interface{}) error
-}
-
 // NewAuthService creates a new instance of authService.
-func NewAuthService(userRepo UserRepository, tokenGen TokenGenerator, eventPub EventPublisher) AuthService {
+func NewAuthService(userRepo UserRepository, tokenRepo TokenRepository, tokenGen TokenGenerator, eventPub EventPublisher) AuthService {
 	return &authService{
-		userRepo: userRepo,
-		tokenGen: tokenGen,
-		eventPub: eventPub,
+		userRepo:  userRepo,
+		tokenRepo: tokenRepo,
+		tokenGen:  tokenGen,
+		eventPub:  eventPub,
 	}
 }
 
@@ -69,6 +66,10 @@ func (s *authService) Authenticate(ctx context.Context, username, password strin
 	}
 
 	user.SetLastLoginAt(time.Now())
+	if err := s.userRepo.SaveUser(ctx, user); err != nil {
+		return nil, errors.New("failed to update last login: " + err.Error())
+	}
+
 	_ = s.eventPub.Publish(&LoginSucceeded{userID: user.ID(), timestamp: time.Now()})
 	return token, nil
 }
@@ -96,12 +97,23 @@ func (s *authService) GenerateTokenPair(userID string) (*Token, error) {
 	return NewToken(accessToken, refreshToken, jti, accessExpiry)
 }
 
-// Logout adds a token to the blacklist (implementation pending).
+// Logout adds a token to the blacklist.
 func (s *authService) Logout(tokenID string) error {
 	if tokenID == "" {
 		return errors.New("token id must not be empty")
 	}
-	// 블랙리스트 추가 로직은 이후 저장소 구현 시 추가
+
+	userID, err := s.tokenGen.ValidateToken(tokenID)
+	if err != nil {
+		return errors.New("invalid token: " + err.Error())
+	}
+
+	// 블랙리스트에 추가 (7일 후 만료로 가정)
+	expiresAt := time.Now().Add(7 * 24 * time.Hour)
+	if err := s.tokenRepo.BlacklistToken(context.Background(), tokenID, userID, "logout", expiresAt); err != nil {
+		return errors.New("failed to blacklist token: " + err.Error())
+	}
+
 	return nil
 }
 
@@ -115,6 +127,16 @@ func (s *authService) ValidateToken(tokenStr string) (string, error) {
 	if err != nil {
 		return "", errors.New("invalid token: " + err.Error())
 	}
+
+	// 블랙리스트 확인
+	isBlacklisted, err := s.tokenRepo.IsBlacklisted(context.Background(), tokenStr)
+	if err != nil {
+		return "", errors.New("failed to check blacklist: " + err.Error())
+	}
+	if isBlacklisted {
+		return "", errors.New("token is blacklisted")
+	}
+
 	return userID, nil
 }
 
@@ -127,6 +149,15 @@ func (s *authService) RefreshToken(refreshTokenStr string) (*Token, error) {
 	userID, err := s.tokenGen.ValidateToken(refreshTokenStr)
 	if err != nil {
 		return nil, errors.New("invalid refresh token: " + err.Error())
+	}
+
+	// 블랙리스트 확인
+	isBlacklisted, err := s.tokenRepo.IsBlacklisted(context.Background(), refreshTokenStr)
+	if err != nil {
+		return nil, errors.New("failed to check blacklist: " + err.Error())
+	}
+	if isBlacklisted {
+		return nil, errors.New("refresh token is blacklisted")
 	}
 
 	return s.GenerateTokenPair(userID)

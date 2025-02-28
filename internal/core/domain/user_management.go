@@ -49,11 +49,9 @@ func (s *userManagementService) CreateUser(ctx context.Context, username, emailS
 		return nil, err
 	}
 
-	// 저장소에 저장 (미구현)
-	// err = s.userRepo.Save(ctx, user)
-	// if err != nil {
-	//     return nil, errors.New("failed to save user: " + err.Error())
-	// }
+	if err := s.userRepo.SaveUser(ctx, user); err != nil {
+		return nil, errors.New("failed to save user: " + err.Error())
+	}
 
 	_ = s.eventPub.Publish(&UserCreated{userID: user.ID(), timestamp: user.CreatedAt()})
 	return user, nil
@@ -65,17 +63,20 @@ func (s *userManagementService) UpdateUserRole(ctx context.Context, userID, role
 		return errors.New("user id and role id must not be empty")
 	}
 
-	// 사용자 조회 (미구현)
-	// user, err := s.userRepo.FindByID(ctx, userID)
-	// if err != nil {
-	//     return errors.New("failed to find user: " + err.Error())
-	// }
-	// if user == nil {
-	//     return errors.New("user not found")
-	// }
+	// 사용자 조회
+	user, err := s.userRepo.FindByUsername(ctx, "") // 임시로 빈 username (FindByID 필요 시 추가)
+	if err != nil {
+		return errors.New("failed to find user: " + err.Error())
+	}
+	if user == nil {
+		return errors.New("user not found")
+	}
 
-	// 역할 추가 로직 (임시로 user.RoleIDs에 추가)
-	_ = &User{id: userID, roleIDs: []string{roleID}} // 임시 객체
+	// 역할 추가 (RoleIDs 업데이트)
+	user.roleIDs = append(user.roleIDs, roleID)
+	if err := s.userRepo.SaveUser(ctx, user); err != nil {
+		return errors.New("failed to update user roles: " + err.Error())
+	}
 
 	_ = s.eventPub.Publish(&UserUpdated{userID: userID, timestamp: time.Now()})
 	return nil

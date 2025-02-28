@@ -14,7 +14,7 @@ type PlatformService interface {
 
 // platformService implements PlatformService with domain logic.
 type platformService struct {
-	platformRepo PlatformAccountRepository // 플랫폼 계정 저장소 (미구현)
+	platformRepo PlatformAccountRepository
 	eventPub     EventPublisher
 }
 
@@ -50,11 +50,9 @@ func (s *platformService) LinkAccount(ctx context.Context, userID, platformStr, 
 		return nil, err
 	}
 
-	// 저장소에 저장 (미구현)
-	// err = s.platformRepo.Save(ctx, account)
-	// if err != nil {
-	//     return nil, errors.New("failed to save platform account: " + err.Error())
-	// }
+	if err := s.platformRepo.Save(ctx, account); err != nil {
+		return nil, errors.New("failed to save platform account: " + err.Error())
+	}
 
 	_ = s.eventPub.Publish(&PlatformConnected{userID: userID, platformID: platformID, timestamp: time.Now()})
 	return account, nil
@@ -66,18 +64,17 @@ func (s *platformService) RevokeAccount(ctx context.Context, userID, platformID 
 		return errors.New("user id and platform id must not be empty")
 	}
 
-	// 계정 조회 및 삭제 (미구현)
-	// account, err := s.platformRepo.FindByID(ctx, platformID)
-	// if err != nil {
-	//     return errors.New("failed to find platform account: " + err.Error())
-	// }
-	// if account == nil || account.UserID() != userID {
-	//     return errors.New("platform account not found or not owned by user")
-	// }
-	// err = s.platformRepo.Delete(ctx, platformID)
-	// if err != nil {
-	//     return errors.New("failed to delete platform account: " + err.Error())
-	// }
+	account, err := s.platformRepo.FindByID(ctx, platformID)
+	if err != nil {
+		return errors.New("failed to find platform account: " + err.Error())
+	}
+	if account == nil || account.UserID() != userID {
+		return errors.New("platform account not found or not owned by user")
+	}
+
+	if err := s.platformRepo.Delete(ctx, platformID); err != nil {
+		return errors.New("failed to delete platform account: " + err.Error())
+	}
 
 	_ = s.eventPub.Publish(&PlatformDisconnected{userID: userID, platformID: platformID, timestamp: time.Now()})
 	return nil

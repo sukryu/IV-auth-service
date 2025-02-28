@@ -40,3 +40,11 @@ type AuditLogRepository interface {
 	// GetLogs retrieves audit logs, optionally filtered by user ID, with pagination.
 	GetLogs(ctx context.Context, userID string, limit, offset int) ([]*AuditLog, error)
 }
+
+// EventPublisher defines the interface for publishing domain events.
+type EventPublisher interface {
+	// Publish sends an event to the underlying event system.
+	Publish(event Event) error
+	// Close shuts down the event publisher and releases resources.
+	Close() error
+}
