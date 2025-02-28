@@ -1,0 +1,2 @@
+INSERT INTO platform_accounts (id, user_id, platform, platform_user_id, platform_username, access_token, refresh_token, token_expires_at)
+VALUES ('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000', 'TWITCH', 'twitch123', 'TestTwitchUser', 'mock_access_token', 'mock_refresh_token', NOW() + INTERVAL '1 hour');

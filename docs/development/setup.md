@@ -6,8 +6,8 @@
 
 ## 1. 필수 요구사항
 
-- **Go 1.21+**  
-  - Go 모듈을 사용하므로 최소 1.13 이상 필요, 권장 1.21+
+- **Go 1.23+**  
+  - Go 모듈을 사용하므로 최소 1.23 이상 필요, 권장 1.22+
 - **Docker & Docker Compose**  
   - 로컬 DB(PostgreSQL), Redis, Kafka 등 서비스 의존성을 빠르게 실행
 - **Protocol Buffers 컴파일러(`protoc`)**  
@@ -28,16 +28,118 @@
    ```
 2. **프로젝트 구조**(요약):
    ```
-   auth-service/
-   ├── cmd/               # 실행 진입점
-   ├── internal/          # 핵심 도메인/비즈니스 로직
-   ├── pkg/               # 유틸리티 라이브러리
-   ├── proto/             # Protocol Buffers (.proto)
-   ├── db/                # DB 마이그레이션/시드
-   ├── deployments/       # Docker/K8s 배포 관련
-   ├── docs/              # 문서
-   ├── Makefile
-   └── go.mod
+  auth-service/
+  ├── cmd/                    # 애플리케이션 실행 진입점
+  │   ├── auth-service/       # 인증 서비스 실행 파일
+  │   │   ├── main.go        # gRPC 서버와 Kafka 초기화
+  │   │   └── wire.go        # 의존성 주입 설정
+  │   └── tools/             # 개발 도구 실행 파일
+  │       └── migrate.go     # DB 마이그레이션 CLI
+  ├── api/                    # 외부 인터페이스 정의 (gRPC)
+  │   └── proto/             # gRPC 프로토콜 버퍼 정의
+  │       ├── auth/          # 인증 관련 API 정의
+  │       │   └── v1/        
+  │       │       └── auth.proto       # 인증 서비스 정의 (생성 코드 제외)
+  │       └── platform/      # 플랫폼 연동 관련 API 정의
+  │           └── v1/
+  │               └── platform.proto   # 플랫폼 계정 연결 API (생성 코드 제외)
+  ├── internal/               # 내부 구현
+  │   ├── adapters/          # 외부 시스템 연결
+  │   │   ├── db/            # 데이터베이스 어댑터
+  │   │   │   ├── postgres/  # PostgreSQL 구현
+  │   │   │   │   ├── user_repository.go      # 사용자 데이터 접근
+  │   │   │   │   ├── token_repository.go     # 토큰 데이터 접근
+  │   │   │   │   └── platform_repository.go  # 플랫폼 계정 데이터
+  │   │   │   └── mocks/     # 테스트용 목
+  │   │   ├── kafka/         # Kafka 이벤트 발행
+  │   │   │   ├── producer.go         # Kafka Producer
+  │   │   │   └── mocks/              # 테스트용 목
+  │   │   ├── redis/         # Redis 캐싱
+  │   │   │   ├── cache.go           # 캐싱 로직
+  │   │   │   └── mocks/             # 테스트용 목
+  │   │   └── grpc/          # gRPC 어댑터
+  │   │       ├── client/    # 내부 서비스 호출용 클라이언트
+  │   │       │   └── client.go      # gRPC 클라이언트
+  │   │       ├── server/    # gRPC 서버
+  │   │       │   └── server.go      # gRPC 서버 로직
+  │   │       └── interceptors/      # 인터셉터
+  │   │           ├── auth.go        # 토큰 검증
+  │   │           └── logging.go     # 로깅
+  │   ├── core/              # 도메인 로직
+  │   │   ├── domain/        # 도메인 모델
+  │   │   │   ├── user.go            # 사용자 엔티티
+  │   │   │   ├── token.go           # 토큰 엔티티
+  │   │   │   ├── platform_account.go # 플랫폼 계정 엔티티
+  │   │   │   └── events.go          # 도메인 이벤트
+  │   │   ├── service/       # 애플리케이션 서비스
+  │   │   │   ├── auth_service.go    # 인증 로직
+  │   │   │   ├── user_service.go    # 사용자 관리 로직
+  │   │   │   └── platform_service.go # 플랫폼 연동 로직
+  │   │   └── ports/         # 도메인 인터페이스
+  │   │       ├── repository.go      # 저장소 인터페이스
+  │   │       ├── event_publisher.go # 이벤트 발행 인터페이스
+  │   │       ├── cache.go           # 캐시 인터페이스
+  │   │       └── grpc_client.go     # gRPC 클라이언트 인터페이스
+  │   ├── config/            # 설정 관리
+  │   │   ├── config.go             # 환경 변수 로드
+  │   │   └── config.yaml           # 기본 설정
+  │   ├── middleware/        # 공통 미들웨어
+  │   │   ├── auth.go               # 토큰 검증
+  │   │   ├── logging.go            # 로깅
+  │   │   └── rate_limit.go         # 속도 제한
+  │   └── generated/         # protoc으로 생성된 gRPC 코드
+  │       ├── auth/          # 인증 관련 생성 코드
+  │       │   └── v1/        
+  │       │       ├── auth.pb.go       # 생성된 Go 코드
+  │       │       └── auth_grpc.pb.go  # gRPC 서비스 인터페이스
+  │       └── platform/      # 플랫폼 연동 관련 생성 코드
+  │           └── v1/
+  │               ├── platform.pb.go   # 생성된 Go 코드
+  │               └── platform_grpc.pb.go # gRPC 서비스 인터페이스
+  ├── pkg/                    # 공용 유틸리티
+  │   ├── crypto/            # 암호화 유틸리티
+  │   │   ├── hash.go               # 비밀번호 해싱
+  │   │   └── jwt.go                # JWT 생성/검증
+  │   ├── logger/            # 로깅 유틸리티
+  │   │   └── logger.go             # 구조화된 로깅
+  │   ├── metrics/           # 메트릭 수집
+  │   │   └── prometheus.go         # Prometheus 메트릭
+  │   └── validator/         # 입력 검증
+  │       └── validator.go          # 요청 데이터 검증
+  ├── db/                     # 데이터베이스 관련 파일
+  │   ├── migrations/        # 스키마 마이그레이션
+  │   │   ├── 001_init.up.sql       # 초기 테이블 생성
+  │   │   └── 001_init.down.sql     # 롤백
+  │   └── seeds/             # 초기 데이터
+  │       └── users.sql             # 샘플 데이터
+  ├── test/                   # 테스트 코드
+  │   ├── unit/              # 단위 테스트
+  │   │   ├── domain/               # 도메인 로직 테스트
+  │   │   ├── service/              # 서비스 로직 테스트
+  │   │   └── adapters/             # 어댑터 테스트
+  │   ├── integration/       # 통합 테스트
+  │   │   ├── auth_test.go          # 인증 워크플로우 테스트
+  │   │   └── platform_test.go      # 플랫폼 연동 테스트
+  │   └── performance/       # 성능 테스트
+  │       └── load_test.go          # 부하 테스트
+  ├── deployments/            # 배포 관련 파일
+  │   ├── docker/            # Docker 설정
+  │   │   ├── Dockerfile            # 서비스 빌드
+  │   │   └── docker-compose.yml    # 개발용 컴포즈
+  │   └── kubernetes/        # Kubernetes 매니페스트
+  │       ├── deployment.yaml       # 배포 설정
+  │       ├── service.yaml          # 서비스 설정
+  │       └── configmap.yaml        # 환경 설정
+  ├── docs/                   # 문서
+  │   ├── architecture/      # 아키텍처 문서
+  │   ├── api/               # gRPC API 문서
+  │   ├── development/       # 개발 가이드
+  │   └── ...                # 기타 문서
+  ├── Makefile               # 빌드 및 개발 작업 자동화
+  ├── go.mod                 # Go 모듈 정의
+  ├── go.sum                 # 의존성 체크섬
+  ├── .gitignore             # Git 무시 패턴
+  └── README.md              # 프로젝트 개요
    ```
 
 ---

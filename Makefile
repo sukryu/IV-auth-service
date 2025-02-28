@@ -1,4 +1,4 @@
-.PHONY: proto build run test lint migrate
+.PHONY: proto build run test lint migrate seed
 
 proto:
     protoc --go_out=. --go_opt=paths=source_relative \
@@ -19,3 +19,7 @@ lint:
 
 migrate:
     migrate -path db/migrations -database "postgres://auth_user:auth_password@localhost:5432/auth_db?sslmode=disable" up
+
+seed:
+    psql -h localhost -U auth_user -d auth_db -f db/seeds/users.sql
+    psql -h localhost -U auth_user -d auth_db -f db/seeds/platform_accounts.sql

@@ -1,0 +1,2 @@
+INSERT INTO users (id, username, email, password_hash, status, subscription_tier)
+VALUES ('550e8400-e29b-41d4-a716-446655440000', 'testuser', 'testuser@example.com', '$argon2id$v=19$m=65536,t=3,p=1$randomsalt$hashedpassword', 'ACTIVE', 'FREE');
