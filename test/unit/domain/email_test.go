@@ -12,14 +12,14 @@ func TestNewEmail(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    domain.Email
+		want    domain.Email // 타입 명확히
 		wantErr bool
 	}{
-		{"Valid email", "test@example.com", "test@example.com", false},
+		{"Valid email", "test@example.com", domain.Email("test@example.com"), false},
 		{"Empty email", "", "", true},
 		{"Invalid format", "not-an-email", "", true},
 		{"Long email", strings.Repeat("a", 256) + "@example.com", "", true},
-		{"Whitespace trimmed", "  test@example.com  ", "test@example.com", false},
+		{"Whitespace trimmed", "  test@example.com  ", domain.Email("test@example.com"), false},
 	}
 
 	for _, tt := range tests {
@@ -30,7 +30,7 @@ func TestNewEmail(t *testing.T) {
 				assert.Empty(t, email)
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, tt.want, email.String())
+				assert.Equal(t, tt.want, email) // 타입 일치로 비교 성공
 				assert.True(t, email.IsValid())
 				assert.Equal(t, "example.com", email.Domain())
 			}

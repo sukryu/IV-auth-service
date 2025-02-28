@@ -9,7 +9,7 @@ import (
 type Token struct {
 	accessToken  string
 	refreshToken string
-	jti          string // JWT Token Identifier
+	jti          string
 	expiry       time.Time
 }
 
