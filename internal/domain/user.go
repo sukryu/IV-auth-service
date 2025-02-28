@@ -37,7 +37,22 @@ func NewUser(username, email, passwordHash string) (*User, error) {
 	}, nil
 }
 
-// Getters (Kubernetes 스타일: 메서드명은 속성명과 동일하게)
+// newUserFromDB is an internal factory function for creating User from database values
+func NewUserFromDB(id, username, email, passwordHash, status, subscriptionTier string, createdAt, updatedAt time.Time, lastLoginAt *time.Time) *User {
+	return &User{
+		id:               id,
+		username:         username,
+		email:            email,
+		passwordHash:     passwordHash,
+		status:           status,
+		subscriptionTier: subscriptionTier,
+		createdAt:        createdAt,
+		updatedAt:        updatedAt,
+		lastLoginAt:      lastLoginAt,
+	}
+}
+
+// Getters
 func (u *User) ID() string               { return u.id }
 func (u *User) Username() string         { return u.username }
 func (u *User) Email() string            { return u.email }
@@ -48,7 +63,7 @@ func (u *User) CreatedAt() time.Time     { return u.createdAt }
 func (u *User) UpdatedAt() time.Time     { return u.updatedAt }
 func (u *User) LastLoginAt() *time.Time  { return u.lastLoginAt }
 
-// Setters (상태 변경 메서드)
+// Setters
 func (u *User) SetStatus(status string) {
 	u.status = status
 	u.updatedAt = time.Now()

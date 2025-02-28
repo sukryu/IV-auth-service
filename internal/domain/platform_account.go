@@ -39,6 +39,22 @@ func NewPlatformAccount(userID, platform, platformUserID, platformUsername, acce
 	}, nil
 }
 
+// newPlatformAccountFromDB is an internal factory function for creating PlatformAccount from database values
+func NewPlatformAccountFromDB(id, userID, platform, platformUserID, platformUsername, accessToken, refreshToken string, tokenExpiresAt *time.Time, createdAt, updatedAt time.Time) *PlatformAccount {
+	return &PlatformAccount{
+		id:               id,
+		userID:           userID,
+		platform:         platform,
+		platformUserID:   platformUserID,
+		platformUsername: platformUsername,
+		accessToken:      accessToken,
+		refreshToken:     refreshToken,
+		tokenExpiresAt:   tokenExpiresAt,
+		createdAt:        createdAt,
+		updatedAt:        updatedAt,
+	}
+}
+
 // Getters
 func (p *PlatformAccount) ID() string                 { return p.id }
 func (p *PlatformAccount) UserID() string             { return p.userID }
