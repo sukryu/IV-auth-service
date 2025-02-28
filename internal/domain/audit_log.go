@@ -39,6 +39,22 @@ func NewAuditLog(userID *string, action, entityType string, entityID *string, ol
 	}, nil
 }
 
+// newAuditLogFromDB creates an AuditLog instance with a specified ID (for database retrieval)
+func NewAuditLogFromDB(id string, userID *string, action, entityType string, entityID *string, oldValues, newValues map[string]interface{}, ipAddress, userAgent *string, createdAt time.Time) *AuditLog {
+	return &AuditLog{
+		id:         id,
+		userID:     userID,
+		action:     action,
+		entityType: entityType,
+		entityID:   entityID,
+		oldValues:  oldValues,
+		newValues:  newValues,
+		ipAddress:  ipAddress,
+		userAgent:  userAgent,
+		createdAt:  createdAt,
+	}
+}
+
 // Getters
 func (a *AuditLog) ID() string                        { return a.id }
 func (a *AuditLog) UserID() *string                   { return a.userID }
