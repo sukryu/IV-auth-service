@@ -19,6 +19,7 @@ type Config struct {
 		User     string `mapstructure:"user"`
 		Password string `mapstructure:"password"`
 		Name     string `mapstructure:"name"`
+		MaxConns int    `mapstructure:"max_conns"`
 	} `mapstructure:"database"`
 	Redis struct {
 		Addr string `mapstructure:"addr"`
@@ -55,6 +56,7 @@ func LoadConfig() (*Config, error) {
 	v.SetDefault("database.user", "auth_user")
 	v.SetDefault("database.password", "auth_password")
 	v.SetDefault("database.name", "auth_db")
+	v.SetDefault("database.max_conns", 50)
 	v.SetDefault("redis.addr", "localhost:6379")
 	v.SetDefault("kafka.broker", "localhost:9092")
 	v.SetDefault("jwt.private_key_path", "./certs/private.pem")

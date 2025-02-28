@@ -7,6 +7,7 @@ database:
   user: auth_user
   password: auth_password
   name: auth_db
+  max_conns: 50
 redis:
   addr: localhost:6379
 kafka:

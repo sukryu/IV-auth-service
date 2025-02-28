@@ -31,7 +31,7 @@ func NewDB(cfg *config.Config, log *logger.Logger) (*DB, error) {
 		return nil, fmt.Errorf("failed to parse DSN: %w", err)
 	}
 	// 대규모 트래픽의 경우 100+
-	poolConfig.MaxConns = 50 // 넉넉한 최대 연결 수 설정 (운영 환경에 따라 조정 가능)
+	poolConfig.MaxConns = int32(cfg.Database.MaxConns) // 넉넉한 최대 연결 수 설정 (운영 환경에 따라 조정 가능)
 
 	// 연결 풀 생성
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
