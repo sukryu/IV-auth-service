@@ -1,69 +1,37 @@
-version: "3.8"
-
+version: '3.8'
 services:
+  auth-service:
+    build:
+      context: ../..
+      dockerfile: deployment/docker/Dockerfile
+    ports:
+      - "50051:50051"
+    env_file:
+      - ../../.env
+      
   postgres:
     image: postgres:15
     environment:
-      POSTGRES_USER: auth_user           # PostgreSQL 사용자 이름
-      POSTGRES_PASSWORD: auth_password   # PostgreSQL 비밀번호
-      POSTGRES_DB: auth_db               # 기본 데이터베이스 이름
+      POSTGRES_USER: auth_user
+      POSTGRES_PASSWORD: auth_password
+      POSTGRES_DB: auth_db
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "auth_user"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   redis:
     image: redis:7
-    environment:
-      REDIS_PASSWORD: redis_password     # Redis 비밀번호 (선택적, 보안 강화 시 사용)
     ports:
       - "6379:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --requirepass redis_password  # 비밀번호 설정 적용
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   kafka:
-    image: confluentinc/cp-kafka:7.2.5
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
+    image: confluentinc/cp-kafka:7.0.1
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-    healthcheck:
-      test: ["CMD", "kafka-topics", "--list", "--bootstrap-server", "localhost:9092"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.2.5
     ports:
-      - "2181:2181"
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.0.1
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    healthcheck:
-      test: ["CMD", "zookeeper-shell", "localhost:2181", "ls", "/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  postgres_data:
-  redis_data:

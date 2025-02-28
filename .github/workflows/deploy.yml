@@ -1,0 +1,50 @@
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      # 코드 체크아웃
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # kubectl 설치
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      # Kubernetes 클러스터 인증
+      - name: Configure Kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yaml
+          export KUBECONFIG=kubeconfig.yaml
+
+      # ArgoCD CLI 설치
+      - name: Install ArgoCD CLI
+        run: |
+          curl -sSL -o /usr/local/bin/argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          chmod +x /usr/local/bin/argocd
+
+      # ArgoCD 로그인 및 애플리케이션 동기화
+      - name: Login to ArgoCD
+        run: |
+          argocd login ${{ secrets.ARGOCD_SERVER }} --username ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }} --insecure
+
+      - name: Sync ArgoCD Application
+        run: |
+          argocd app sync iv-auth-service --revision ${{ github.sha }}
+          argocd app wait iv-auth-service --timeout 300
+
+      # 배포 상태 확인
+      - name: Verify deployment
+        run: |
+          kubectl get pods -n iv-auth-service
+          kubectl rollout status deployment/iv-auth-service -n iv-auth-service

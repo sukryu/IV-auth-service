@@ -1,0 +1,10 @@
+linters:
+  enable:
+    - gofmt
+    - goimports
+    - revive  # golint 대신 revive 사용
+    - errcheck
+    - staticcheck
+    - unused
+run:
+  timeout: 5m
