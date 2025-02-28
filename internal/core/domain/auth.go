@@ -23,12 +23,6 @@ type authService struct {
 	eventPub EventPublisher // 이벤트 발행기 (미구현)
 }
 
-// UserRepository defines the interface for user data access (placeholder).
-type UserRepository interface {
-	FindByUsername(ctx context.Context, username string) (*User, error)
-	// 추가 메서드 필요 시 정의
-}
-
 // TokenGenerator defines the interface for generating tokens (placeholder).
 type TokenGenerator interface {
 	GenerateAccessToken(userID string, expiry time.Time) (string, error)

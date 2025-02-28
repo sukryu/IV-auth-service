@@ -18,13 +18,6 @@ type platformService struct {
 	eventPub     EventPublisher
 }
 
-// PlatformAccountRepository defines the interface for platform account data access (placeholder).
-type PlatformAccountRepository interface {
-	Save(ctx context.Context, account *PlatformAccount) error
-	FindByID(ctx context.Context, id string) (*PlatformAccount, error)
-	Delete(ctx context.Context, id string) error
-}
-
 // NewPlatformService creates a new instance of platformService.
 func NewPlatformService(platformRepo PlatformAccountRepository, eventPub EventPublisher) PlatformService {
 	return &platformService{
