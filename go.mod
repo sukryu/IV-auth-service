@@ -5,6 +5,7 @@ go 1.23.0
 toolchain go1.23.6
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/segmentio/kafka-go v0.4.47
 	github.com/spf13/viper v1.19.0

@@ -44,6 +44,11 @@ func main() {
 	defer eventPub.Close()
 
 	// 저장소와 서비스를 초기화 해도 주입할 gRPC 서비스가 아직 미구현이므로 주석.
+	// TokenGenerator 초기화
+	// tokenGen, err := tokens.NewJWTTokenGenerator(cfg, log)
+	// if err != nil {
+	//     log.Fatal("Failed to initialize token generator", logger.Field("error", err))
+	// }
 	// 저장소 초기화
 	// userRepo := postgres.NewUserRepository(db, log)
 	// tokenRepo := postgres.NewTokenRepository(db, log)
