@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -17,6 +18,12 @@ type AuditLog struct {
 	ipAddress  *string // nullable
 	userAgent  *string // nullable
 	createdAt  time.Time
+}
+
+// AuditLogRepository defines the interface for audit log data access.
+type AuditLogRepository interface {
+	LogAction(ctx context.Context, log *AuditLog) error
+	GetLogs(ctx context.Context, userID string, limit, offset int) ([]*AuditLog, error)
 }
 
 // NewAuditLog creates a new AuditLog instance.

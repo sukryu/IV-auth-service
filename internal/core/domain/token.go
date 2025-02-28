@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -11,6 +12,12 @@ type Token struct {
 	refreshToken string
 	jti          string
 	expiry       time.Time
+}
+
+// TokenRepository defines the interface for token data access.
+type TokenRepository interface {
+	BlacklistToken(ctx context.Context, tokenID, userID, reason string, expiresAt time.Time) error
+	IsBlacklisted(ctx context.Context, tokenID string) (bool, error)
 }
 
 // NewToken creates a new Token instance.

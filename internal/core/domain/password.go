@@ -38,6 +38,17 @@ func NewPassword(rawPassword string) (Password, error) {
 	}, nil
 }
 
+// NewPasswordFromHash creates a Password from an existing hash and salt (for DB retrieval).
+func NewPasswordFromHash(hash, salt []byte) (Password, error) {
+	if len(hash) == 0 {
+		return Password{}, errors.New("hash must not be empty")
+	}
+	return Password{
+		hash: hash,
+		salt: salt, // salt가 없는 경우 nil 허용
+	}, nil
+}
+
 // Hash returns the hashed password bytes.
 func (p Password) Hash() []byte {
 	return p.hash
